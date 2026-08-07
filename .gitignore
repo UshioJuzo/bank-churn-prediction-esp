@@ -1,0 +1,68 @@
+# ==============================================================================
+# Material de trabajo: no forma parte del repositorio
+# ------------------------------------------------------------------------------
+# Documentación interna, bitácora, informe, figuras y fuentes preparadas para
+# herramientas de estudio. Vive en local porque es el proceso, no el producto.
+# El repositorio publica el código: notebooks, SQL y aplicación.
+# ==============================================================================
+docs/
+imag/
+NotebookLM/
+files/
+
+# ---------------------------------------------------------------- Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.ipynb_checkpoints/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ---------------------------------------------------------------- Node
+node_modules/
+package-lock.json
+npm-debug.log*
+
+# ---------------------------------------------------------------- Datos
+# El archivo de origen se descarga por codigo desde Kaggle, con su hash
+# registrado en el notebook 01. No se versiona: el notebook lo reconstruye.
+*.csv
+*.parquet
+*.db
+*.sqlite
+data/
+!docs/**/*.csv
+
+# ---------------------------------------------------------------- Credenciales
+.env
+.env.*
+*.pem
+*.key
+secrets.*
+.databrickscfg
+.databricks/
+
+# ---------------------------------------------------------------- Artefactos locales
+mlruns/
+mlartifacts/
+outputs/
+tmp/
+*.log
+
+# ---------------------------------------------------------------- Sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+*~
+.idea/
+.vscode/
+*.swp
+
+# ---------------------------------------------------------------- Ofimatica
+~$*.docx
+~$*.xlsx
+~$*.pptx

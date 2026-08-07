@@ -1,0 +1,34 @@
+# =============================================================================
+# Dependencias de la aplicacion
+#
+# Las versiones de abajo estan FIJADAS, no acotadas con >=. Un modelo serializado
+# guarda referencias a clases internas de la libreria que lo creo, y esas clases
+# cambian de sitio entre versiones. Con `scikit-learn>=1.5` pip instalo la 1.7 y
+# la carga fallo con:
+#
+#   AttributeError: Can't get attribute '_RemainderColsList' on module
+#   'sklearn.compose._column_transformer'
+#
+# Los pines proceden del propio modelo, no de una suposicion. MLflow los registra
+# al guardarlo y se recuperan con:
+#
+#   mlflow.artifacts.load_text(f"models:/{UC_MODEL}/{version}/requirements.txt")
+# =============================================================================
+
+# --- Versiones exactas con las que se serializo el modelo -------------------
+mlflow==3.8.1
+cloudpickle==3.0.0
+pandas==2.2.3
+scikit-learn==1.6.1
+
+# --- Dependencias propias de la aplicacion ----------------------------------
+streamlit>=1.40
+plotly>=5.22
+databricks-sdk>=0.81.0
+databricks-sql-connector>=3.7
+
+# numpy y scipy se dejan sin fijar a proposito: pandas y scikit-learn ya
+# imponen rangos compatibles, y fijarlas por nuestra cuenta suele provocar
+# conflictos de resolucion sin aportar nada.
+numpy
+scipy

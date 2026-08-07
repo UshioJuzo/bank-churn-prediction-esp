@@ -1,0 +1,20 @@
+command: ["streamlit", "run", "app.py", "--server.port", "8000", "--server.address", "0.0.0.0"]
+
+env:
+  # Injected from the SQL Warehouse resource added in the app settings.
+  # 'sql-warehouse' must match the resource key exactly.
+  - name: DATABRICKS_WAREHOUSE_ID
+    valueFrom: sql-warehouse
+
+  # Where the app reads from. Everything it needs lives in the gold schema.
+  - name: CATALOG
+    value: bank_churn
+  - name: GOLD_SCHEMA
+    value: gold
+
+  # Campaign capacity, used to label the executive summary.
+  - name: CAPACIDAD
+    value: "800"
+
+  - name: STREAMLIT_BROWSER_GATHER_USAGE_STATS
+    value: "false"
