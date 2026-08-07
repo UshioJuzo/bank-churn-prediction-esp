@@ -10,6 +10,9 @@ imag/
 NotebookLM/
 files/
 
+# Excepcion: las cinco imagenes que ilustran el README si viajan con el repositorio
+!assets/
+
 # ---------------------------------------------------------------- Python
 __pycache__/
 *.py[cod]

@@ -3,16 +3,10 @@
 Sistema completo de predicción de fuga sobre Databricks: base operacional, arquitectura
 medallion, modelo calibrado y aplicación de retención en producción.
 
-> **In English.** End-to-end customer churn system on Databricks. A Postgres (Lakebase)
-> operational database feeds a bronze/silver/gold Delta architecture; a calibrated random
-> forest scores the portfolio, and the results flow back to the operational side through
-> reverse ETL, where a Streamlit app turns them into a prioritized retention list. The
-> project is built around an explicit cost model rather than accuracy: with capacity for
-> 800 calls, the task is ranking, not classification. Criteria were pre-registered before
-> any model was trained, and the two that failed are reported as failures. Code and
-> comments are in Spanish.
+![Lista priorizada de clientes en riesgo](assets/pag_3.png)
 
----
+Esto es lo que produce el sistema: una lista ordenada por probabilidad, con acción sugerida
+y sin apellidos. Todo lo demás existe para que esta pantalla tenga sentido.
 
 ## El problema
 
@@ -20,39 +14,44 @@ Un banco con 10.000 clientes pierde al 20,4 % al año. Puede llamar a 800 antes 
 vayan. La pregunta no es *quién se va a ir* —eso no lo decide nadie— sino **a quién llamar
 con las 800 llamadas que hay**.
 
-Esa restricción cambia el problema entero. Rescatar a un cliente vale 145 €, molestar a
-uno que se iba a quedar cuesta 35 €. De ahí sale el umbral de rentabilidad:
+Esa restricción cambia el problema entero. Rescatar a un cliente vale 145 €, molestar a uno
+que se iba a quedar cuesta 35 €. De ahí sale el umbral de rentabilidad:
 
 ```
 p* = 35 / (145 + 35) = 0,194
 ```
 
 Por debajo de esa probabilidad, llamar destruye valor. Pero con capacidad fija el umbral
-real no lo fija la rentabilidad sino el cupo: entran los 800 de mayor riesgo, y eso
-empuja el corte hasta 0,726. **La capacidad convierte una tarea de clasificación en una
-de ordenación**, y por eso la métrica que decide es la precisión media y no la exactitud.
+real no lo fija la rentabilidad sino el cupo: entran los 800 de mayor riesgo, y eso empuja
+el corte hasta 0,726. **La capacidad convierte una tarea de clasificación en una de
+ordenación**, y por eso la métrica que decide es la precisión media y no la exactitud.
 
-## Arquitectura
+## La arquitectura
 
-```
-Lakebase (Postgres)          Unity Catalog (Delta)              Aplicación
-┌──────────────────┐         ┌─────────────────────┐         ┌─────────────┐
-│  customers_raw   │────────▶│  bronze             │         │             │
-│  customers       │         │  silver  (features) │         │  Streamlit  │
-│  predictions     │◀────────│  gold    (scoring)  │────────▶│  5 secciones│
-│  model_runs      │ reverse └─────────────────────┘         └─────────────┘
-└──────────────────┘   ETL
-```
+![Recorrido del dato](assets/A_recorrido_del_dato.png)
 
-Dos sistemas con trabajos distintos. Lakebase es el lado operacional: filas individuales,
-claves foráneas, latencia baja. Delta es el lado analítico: columnas, historial, escaneos
-grandes. El **reverse ETL** es lo que cierra el ciclo — sin él, las predicciones se quedan
-en un almacén que nadie consulta a diario.
+Dos sistemas con trabajos distintos. Lakebase es el lado operacional —filas individuales,
+claves foráneas, latencia baja— y Delta el analítico —columnas, historial, escaneos
+grandes—. La flecha inferior es el **reverse ETL**, y es lo que cierra el ciclo: sin ella
+las predicciones se quedan en un almacén que nadie consulta a diario.
 
-La frontera entre las dos capas es también el control anti-fuga: la ingeniería de
+La frontera entre ambas capas es también el control anti-fuga. La ingeniería de
 características ocurre en silver, después de haber apartado el conjunto de prueba.
 
+## El hallazgo que dirigió el modelado
+
+![Abandono por edad y actividad](assets/D_u_invertida_por_actividad.png)
+
+El riesgo no crece con la edad: crece con la edad **entre los inactivos**, hasta el 85,6 %
+en los mayores de 60, mientras que entre los activos vuelve a bajar después de esa edad.
+
+Esa interacción es la razón de que un modelo lineal se quede corto y de que el árbol la
+descubra sola en su segundo nivel. Y es accionable, que es lo que importa: la actividad es
+la única de las dos variables sobre la que el banco puede intervenir.
+
 ## Resultados
+
+![Curva precisión-recall](assets/P3_curva_pr.png)
 
 Medido sobre el conjunto de prueba apartado antes de entrenar.
 
@@ -76,8 +75,24 @@ techo = 160 contactos / 407 abandonos = 0,393
 ```
 
 Con capacidad limitada no se puede rescatar más del 39,3 % aunque el modelo sea perfecto.
-Se alcanzó 0,344 — el **87,5 % de ese techo**. El criterio no se retocó para que pasara:
-se reporta como incumplido y se explica por qué era imposible.
+Se alcanzó 0,344 — el **87,5 % de ese techo**. El criterio no se retocó para que pasara: se
+reporta como incumplido y se explica por qué era imposible.
+
+## La aplicación
+
+![Comparación de modelos en la aplicación](assets/pag_4.png)
+
+Cinco secciones: resumen ejecutivo con la comprobación de calibración a la vista,
+segmentación con filtros, lista priorizada, desempeño del modelo y predicción individual.
+
+![Segmentación por edad y actividad en la aplicación](assets/pag_2_2.png)
+
+El hallazgo del análisis no se queda en un notebook: aparece donde el negocio lo consulta,
+con los filtros de país, edad y actividad afectando a la vez a los tres gráficos.
+
+Corre como su propio principal de servicio con tres concesiones —uso de catálogo, uso de
+esquema y lectura sobre gold— y **no toca bronze ni silver**. Mínimo privilegio: si algún
+día se compromete, el alcance es una tabla de predicciones que ya estaba en el CRM.
 
 ## Estructura
 
@@ -106,16 +121,13 @@ esa secuencia a propósito: explican conceptos y no forman parte del flujo.
 modelo, escritas en el notebook 00 y auditadas en el 04. Cuatro se confirmaron; una salió
 parcial y se reporta parcial.
 
-**El modelo desplegado no usa `gender`.** Se midió lo que costaba excluirla: 0,12 puntos
-de exhaustividad, unos dos clientes. No justifica usar una característica protegida para
+**El modelo desplegado no usa `gender`.** Se midió lo que costaba excluirla: 0,12 puntos de
+exhaustividad, unos dos clientes. No justifica usar una característica protegida para
 repartir un beneficio.
 
 **Está calibrado.** Sin calibración isotónica, `class_weight="balanced_subsample"` deja
 probabilidades infladas. Una probabilidad que no se puede leer como probabilidad no sirve
 para decidir a quién llamar.
-
-**La aplicación no toca bronze ni silver.** Corre como su propio principal de servicio con
-tres concesiones: uso de catálogo, uso de esquema y lectura sobre gold. Mínimo privilegio.
 
 ## Reproducir
 
@@ -139,7 +151,7 @@ por construcción, un mínimo de 11,58 exactamente donde tocaba. Cuatro pruebas
 independientes. Eso pone un techo a lo que se puede aprender: las interacciones que existen
 son las que el generador introdujo.
 
-**El modelo se le escapan los jóvenes.** Detecta bien el abandono de clientes mayores e
+**Al modelo se le escapan los jóvenes.** Detecta bien el abandono de clientes mayores e
 inactivos, que es donde está la señal. Fuera de ahí, menos.
 
 **Sin datos temporales** no hay forma de validar contra deriva. El conjunto es una foto.
