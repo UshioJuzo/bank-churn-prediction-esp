@@ -144,7 +144,7 @@ def resumen_ejecutivo():
 
     izq, der = st.columns([3, 2])
     with izq:
-        st.subheader("Como se reparte la cartera")
+        st.subheader("Cómo se reparte la cartera")
         dist = consultar(f"""
             SELECT risk_level,
                    COUNT(*)                AS clientes,
@@ -175,7 +175,7 @@ def resumen_ejecutivo():
             hide_index=True, use_container_width=True)
         st.caption(
             "La probabilidad media y el abandono real coinciden en cada nivel: el modelo "
-            "esta **calibrado**. Sin calibrar, la primera columna sobreestimaría la segunda."
+            "está **calibrado**. Sin calibrar, la primera columna sobreestimaría la segunda."
         )
 
 
@@ -312,12 +312,17 @@ def desempeno():
     st.subheader("Comparación de modelos")
     try:
         comp = consultar(f"SELECT * FROM {G}.model_comparison")
+        # La tabla lleva una fila por ejecucion de MLflow, no por modelo: si el
+        # notebook 04 se corrio varias veces, el mismo nombre aparece repetido y
+        # Plotly apila las barras, que entonces miden mas de lo que dicen.
+        # Nos quedamos con la ultima ejecucion registrada de cada modelo.
+        comp = comp.drop_duplicates(subset="modelo", keep="last")
         comp = comp.sort_values("average_precision", ascending=True)
         fig = px.bar(comp, x="average_precision", y="modelo", orientation="h",
                      color="es_linea_base", text_auto=".4f",
                      color_discrete_map={True: GREY, False: CHURN},
                      labels={"average_precision": "Average precision (validación cruzada)",
-                             "modelo": "", "es_linea_base": "Linea base"})
+                             "modelo": "", "es_linea_base": "Línea base"})
         fig.update_traces(textposition="inside", insidetextanchor="end")
         fig.update_layout(height=380, margin=dict(t=20, b=10),
                           xaxis=dict(range=[0, 1]))
@@ -333,7 +338,7 @@ def desempeno():
     izq, der = st.columns(2)
 
     with izq:
-        st.subheader("Matriz de confusion")
+        st.subheader("Matriz de confusión")
         cm = [[int(met.TN), int(met.FP)], [int(met.FN), int(met.TP)]]
         fig = go.Figure(go.Heatmap(
             z=cm, x=["Predice: se queda", "Predice: abandona"],
@@ -353,18 +358,18 @@ def desempeno():
         )
 
     with der:
-        st.subheader("Variables mas influyentes")
+        st.subheader("Variables más influyentes")
         try:
             imp = consultar(f"SELECT * FROM {G}.feature_importance ORDER BY importancia")
             fig = px.bar(imp, x="importancia", y="variable", orientation="h",
                          error_x="std", color="distinguible_de_cero",
                          color_discrete_map={True: CHURN, False: GREY},
-                         labels={"importancia": "Caida de average precision al permutar",
+                         labels={"importancia": "Caída de average precision al permutar",
                                  "variable": "", "distinguible_de_cero": "Efecto real"})
             fig.update_layout(height=340, margin=dict(t=20, b=10))
             st.plotly_chart(fig, use_container_width=True)
             st.caption(
-                "Importancia por permutacion sobre datos no vistos. En gris, las variables "
+                "Importancia por permutación sobre datos no vistos. En gris, las variables "
                 "cuyo efecto no se distingue de cero."
             )
         except Exception:
@@ -377,24 +382,24 @@ def desempeno():
     b.metric("Average precision", f"{met.average_precision:.4f}")
     c.metric("Brier score", f"{float(val(met, 'brier')):.4f}",
              help="Calidad de la calibración. Menor es mejor.")
-    d.metric("Precision", f"{met.precision:.4f}")
+    d.metric("Precisión", f"{met.precision:.4f}")
 
     st.markdown(
         f"""
 - **Modelo:** {met.modelo} sin la variable `gender`, calibrado isotónicamente.
-- **Por que sin genero:** su aporte medido fue de **0,12 puntos de recall (unos dos clientes)**.
+- **Por qué sin género:** su aporte medido fue de **0,12 puntos de recall (unos dos clientes)**.
   No justifica usar una característica protegida para repartir un beneficio.
 - **Umbral:** {float(val(met, 'umbral', 'umbral_elegido')):.4f}, fijado por capacidad operativa y
-  validado contra el umbral de rentabilidad economica ({float(val(met, 'umbral_coste')):.4f}).
-- **Limite conocido:** el modelo detecta bien el abandono de clientes mayores e inactivos, y se
-  le escapa el de los mas jovenes.
+  validado contra el umbral de rentabilidad económica ({float(val(met, 'umbral_coste')):.4f}).
+- **Límite conocido:** el modelo detecta bien el abandono de clientes mayores e inactivos, y se
+  le escapa el de los más jóvenes.
 """
     )
 
 
 def prediccion_individual():
     st.header("Predicción individual")
-    st.caption("Usa el mismo modelo registrado que genero las tablas de esta aplicación.")
+    st.caption("Usa el mismo modelo registrado que generó las tablas de esta aplicación.")
 
     try:
         modelo, ref = cargar_modelo()
@@ -429,7 +434,7 @@ def prediccion_individual():
 
     if not enviado:
         st.info(
-            "El formulario **no pide el genero**: el modelo desplegado no lo utiliza. "
+            "El formulario **no pide el género**: el modelo desplegado no lo utiliza. "
             "Su aporte medido era de unos dos clientes de 2.037, insuficiente para justificar "
             "el uso de una característica protegida."
         )
@@ -463,7 +468,7 @@ def prediccion_individual():
     st.divider()
     a, b, c = st.columns(3)
     a.metric("Probabilidad de abandono", f"{p:.1%}")
-    b.metric("Clasificacion", "Abandona" if p >= umbral else "Permanece")
+    b.metric("Clasificación", "Abandona" if p >= umbral else "Permanece")
     c.metric("Nivel de riesgo", nivel.upper())
 
     fig = go.Figure(go.Indicator(
