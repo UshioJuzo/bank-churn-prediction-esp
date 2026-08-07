@@ -1,18 +1,19 @@
 command: ["streamlit", "run", "app.py", "--server.port", "8000", "--server.address", "0.0.0.0"]
 
 env:
-  # Injected from the SQL Warehouse resource added in the app settings.
-  # 'sql-warehouse' must match the resource key exactly.
+  # Lo inyecta el recurso SQL Warehouse que se añade en los ajustes de la
+  # aplicación. 'sql-warehouse' tiene que coincidir exactamente con la clave
+  # del recurso, o la variable llega vacía.
   - name: DATABRICKS_WAREHOUSE_ID
     valueFrom: sql-warehouse
 
-  # Where the app reads from. Everything it needs lives in the gold schema.
+  # De dónde lee la aplicación. Todo lo que necesita vive en el esquema gold.
   - name: CATALOG
     value: bank_churn
   - name: GOLD_SCHEMA
     value: gold
 
-  # Campaign capacity, used to label the executive summary.
+  # Capacidad de la campaña. Sirve para rotular el resumen ejecutivo.
   - name: CAPACIDAD
     value: "800"
 
